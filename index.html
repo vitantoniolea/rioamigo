@@ -119,6 +119,10 @@
   .lunmlbl { font-size:12px; color:var(--dim); font-weight:700; }
   .luncells { display:grid; grid-template-columns:repeat(10, 1fr); gap:2px; }
   .luncell { width:100%; aspect-ratio:1; border-radius:2px; }
+
+  .puntoswrap { display:flex; flex-direction:column; height:100%; min-height:calc(100vh - 120px); }
+  .rioMap { flex:1 1 auto; width:100%; min-height:400px; background:#0E2C38; position:relative; z-index:1; }
+  .maphint { flex:0 0 auto; padding:10px 14px; background:var(--surface); font-size:13px; color:var(--dim); text-align:center; border-top:1px solid var(--line); }
 </style>
 </head>
 <body>
@@ -471,35 +475,35 @@ function calDayInfo(y,m,d){
 
 
 function renderPuntos(){
-  // Lee pines guardados en localStorage
   var pins = [];
   try { pins = JSON.parse(localStorage.getItem('rioamigo_pins')||'[]'); } catch(e){}
-  var map = '<div id="rioMap" style="width:100%;height:65vh;min-height:420px;background:#0E2C38;position:relative;z-index:1;"></div>';
-  var hintBar = '<div style="padding:8px 14px;background:var(--surface);font-size:13px;color:var(--dim);text-align:center;">Tocá el mapa para clavar un pesquero · '+pins.length+' guardados</div>';
-  if (!state.showForm) {
-    setTimeout(initMap, 50);
-    return map + hintBar;
-  }
-  var inner;
-  if (state.saved){
-    inner = '<div style="text-align:center;padding:24px 0;"><div style="font-size:48px;">✓</div>'+
-      '<div style="font-size:19px;font-weight:700;color:var(--green);margin-top:8px;">¡Punto guardado!</div>'+
-      (state.depth?'<div class="sub" style="margin-top:6px;">Pozo de '+state.depth+' m anotado.</div>':'')+
-      '<div class="sub" style="margin-top:8px;line-height:1.5;">Viento, altura y luna de este momento<br>se guardaron con el punto.</div>'+
-      '<button class="btn" style="margin-top:18px;flex:none;padding:13px 26px;" onclick="resetForm()">Cargar otro</button></div>';
-  } else {
-    var sp = SPECIES.map(function(o){ return '<button class="chip '+(state.species===o?"on":"")+'" onclick="pickSpecies(\''+o+'\')">'+o+'</button>'; }).join("");
-    var ba = BAITS.map(function(o){ return '<button class="chip '+(state.bait===o?"on":"")+'" onclick="pickBait(\''+o+'\')">'+o+'</button>'; }).join("");
-    var dp = DEPTHS.map(function(o){ return '<button class="chip '+(state.depth===o?"on":"")+'" onclick="pickDepth(\''+o+'\')">'+o+' m</button>'; }).join("");
-    inner = '<div class="rowbetween" style="align-items:center;margin-bottom:14px;"><span style="font-size:19px;font-weight:700;">Nuevo pesquero</span><button class="closebtn" onclick="resetForm()">✕</button></div>'+
-      '<div class="dim" style="margin-bottom:8px;">Especie</div><div class="chips" style="margin-bottom:14px;">'+sp+'</div>'+
-      '<div class="dim" style="margin-bottom:8px;">Carnada</div><div class="chips" style="margin-bottom:14px;">'+ba+'</div>'+
-      '<div class="dim" style="margin-bottom:8px;">Profundidad del pozo (m)</div><div class="chips">'+dp+'</div>'+
-      '<div class="btnrow"><button class="btn">📷 Foto</button><button class="btn primary" onclick="savepoint()">Guardar</button></div>'+
-      '<div style="font-size:13px;color:var(--green);margin-top:12px;text-align:center;line-height:1.4;">Podés guardar sin elegir nada. Todo es opcional.</div>';
+  var count = pins.length;
+  if (state.showForm) {
+    var inner;
+    if (state.saved){
+      inner = '<div style="text-align:center;padding:24px 16px;"><div style="font-size:48px;">✓</div>'+
+        '<div style="font-size:19px;font-weight:700;color:var(--green);margin-top:8px;">¡Punto guardado!</div>'+
+        (state.depth?'<div class="sub" style="margin-top:6px;">Pozo de '+state.depth+' m anotado.</div>':'')+
+        '<div class="sub" style="margin-top:8px;line-height:1.5;">Viento, altura y luna de este momento<br>se guardaron con el punto.</div>'+
+        '<button class="btn" style="margin-top:18px;flex:none;padding:13px 26px;" onclick="resetForm()">Cargar otro</button></div>';
+    } else {
+      var sp = SPECIES.map(function(o){ return '<button class="chip '+(state.species===o?"on":"")+'" onclick="pickSpecies(\''+o+'\')">'+o+'</button>'; }).join("");
+      var ba = BAITS.map(function(o){ return '<button class="chip '+(state.bait===o?"on":"")+'" onclick="pickBait(\''+o+'\')">'+o+'</button>'; }).join("");
+      var dp = DEPTHS.map(function(o){ return '<button class="chip '+(state.depth===o?"on":"")+'" onclick="pickDepth(\''+o+'\')">'+o+' m</button>'; }).join("");
+      inner = '<div class="pad"><div class="rowbetween" style="align-items:center;margin-bottom:14px;"><span style="font-size:19px;font-weight:700;">Nuevo pesquero</span><button class="closebtn" onclick="resetForm()">✕</button></div>'+
+        '<div class="dim" style="margin-bottom:8px;">Especie</div><div class="chips" style="margin-bottom:14px;">'+sp+'</div>'+
+        '<div class="dim" style="margin-bottom:8px;">Carnada</div><div class="chips" style="margin-bottom:14px;">'+ba+'</div>'+
+        '<div class="dim" style="margin-bottom:8px;">Profundidad del pozo (m)</div><div class="chips">'+dp+'</div>'+
+        '<div class="btnrow"><button class="btn">📷 Foto</button><button class="btn primary" onclick="savepoint()">Guardar</button></div>'+
+        '<div style="font-size:13px;color:var(--green);margin-top:12px;text-align:center;line-height:1.4;">Podés guardar sin elegir nada. Todo es opcional.</div></div>';
+    }
+    return inner;
   }
   setTimeout(initMap, 50);
-  return map + hintBar + '<div class="pad">'+inner+'</div>';
+  return '<div class="puntoswrap">'+
+    '<div id="rioMap" class="rioMap"></div>'+
+    '<div class="maphint">Tocá el mapa para clavar un pesquero · '+count+' guardados</div>'+
+    '</div>';
 }
 
 var leafletMap = null;
@@ -507,18 +511,28 @@ var leafletMarkers = [];
 function initMap(){
   var el = document.getElementById('rioMap');
   if (!el || typeof L === 'undefined') return;
-  // Si ya hay mapa en este div, destruirlo
-  if (leafletMap) { leafletMap.remove(); leafletMap = null; leafletMarkers = []; }
+  // Destruir mapa previo si existe
+  if (leafletMap) {
+    try { leafletMap.remove(); } catch(e){}
+    leafletMap = null;
+    leafletMarkers = [];
+  }
+  // Limpiar completamente el div por si Leaflet dejó restos
+  el.innerHTML = '';
+  // Forzar que tenga tamaño ANTES de inicializar
+  if (el.offsetHeight < 100) {
+    el.style.height = Math.max(400, window.innerHeight - 220) + 'px';
+  }
   var z = ZONES[state.zone];
-  leafletMap = L.map('rioMap', { zoomControl: true, attributionControl: false, tap: true }).setView([z.lat, z.lon], 13);
-  // Recalcular tamaño después de render (fix clásico de Leaflet en contenedores dinámicos)
-  setTimeout(function(){ if (leafletMap) leafletMap.invalidateSize(); }, 100);
-  setTimeout(function(){ if (leafletMap) leafletMap.invalidateSize(); }, 500);
+  leafletMap = L.map(el, { zoomControl: true, attributionControl: false, tap: true }).setView([z.lat, z.lon], 13);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
     attribution: '© OpenStreetMap'
   }).addTo(leafletMap);
-  L.control.attribution({ prefix: false }).addAttribution('© OSM').addTo(leafletMap);
+  // Recalcular tamaño varias veces (fix clásico para contenedores que se dimensionan tarde)
+  setTimeout(function(){ if (leafletMap) leafletMap.invalidateSize(true); }, 50);
+  setTimeout(function(){ if (leafletMap) leafletMap.invalidateSize(true); }, 300);
+  setTimeout(function(){ if (leafletMap) leafletMap.invalidateSize(true); }, 800);
   // Pines guardados
   var pins = [];
   try { pins = JSON.parse(localStorage.getItem('rioamigo_pins')||'[]'); } catch(e){}
@@ -532,14 +546,13 @@ function initMap(){
     mk.bindPopup(popup);
     leafletMarkers.push(mk);
   });
-  // Click para pin nuevo
   leafletMap.on('click', function(e){
     state.pendingLat = e.latlng.lat;
     state.pendingLon = e.latlng.lng;
     state.showForm = true;
     render();
   });
-  // Intentar centrar en la ubicación real del usuario si acepta
+  // Geolocalización
   if (navigator.geolocation && !state.geoAsked) {
     state.geoAsked = true;
     navigator.geolocation.getCurrentPosition(function(pos){
@@ -716,7 +729,13 @@ function render(){
     return '<button class="'+(state.tab===t.id?"active":"")+'" onclick="setTab(\''+t.id+'\')"><span class="ico">'+t.ico+'</span><span>'+t.label+'</span></button>';
   }).join("");
 }
-function setTab(t){ state.tab=t; if(t!=="puntos"){state.showForm=false;state.saved=false;} if(t!=="lancha"){state.inspect=false;} document.getElementById("screen").scrollTop=0; render(); }
+function setTab(t){ 
+  // Si salimos de Puntos, destruir mapa
+  if (state.tab==="puntos" && t!=="puntos" && leafletMap) {
+    try { leafletMap.remove(); } catch(e){}
+    leafletMap = null; leafletMarkers = [];
+  }
+  state.tab=t; if(t!=="puntos"){state.showForm=false;state.saved=false;} if(t!=="lancha"){state.inspect=false;} document.getElementById("screen").scrollTop=0; render(); }
 function setZone(z){ state.zone=z; if(!WEATHER[z]) fetchWeather(z); render(); }
 function setFc(f){ state.fc=f; render(); }
 function openForm(){ state.showForm=true; render(); }
