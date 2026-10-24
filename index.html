@@ -21,7 +21,7 @@
   .topbar .title { font-size:19px; font-weight:800; letter-spacing:.3px; }
   .topbar .offline { margin-left:auto; font-size:12px; color:var(--green); }
   #screen { flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; }
-  .nav { display:flex; border-top:1px solid var(--line); background:var(--surface); flex-shrink:0; }
+  .nav { display:flex; border-top:1px solid var(--line); background:var(--surface); flex-shrink:0; position:relative; z-index:1000; }
   .nav button { flex:1; padding:10px 0; border:none; background:transparent; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:2px; color:var(--dim); border-top:3px solid transparent; font-size:11px; }
   .nav button.active { color:var(--accent); border-top-color:var(--accent); font-weight:700; }
   .nav button .ico { font-size:22px; }
@@ -29,8 +29,8 @@
   .dim { color:var(--dim); font-size:14px; }
   .rowbetween { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; }
 
-  .zonebtns { display:flex; gap:8px; margin-bottom:16px; }
-  .zonebtns button { flex:1; padding:16px 0; font-size:17px; font-weight:700; border-radius:12px; cursor:pointer; border:2px solid var(--line); background:transparent; color:var(--text); }
+  .zonebtns { display:flex; gap:8px; margin-bottom:16px; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; padding-bottom:4px; } .zonebtns::-webkit-scrollbar{display:none;}
+  .zonebtns button { flex:0 0 auto; padding:14px 18px; font-size:15px; font-weight:700; border-radius:12px; cursor:pointer; border:2px solid var(--line); background:transparent; color:var(--text); white-space:nowrap; }
   .zonebtns button.active { border-color:var(--accent); background:var(--accent); color:var(--bg); }
 
   .windhero { border-radius:16px; padding:16px; margin-bottom:12px; border:2px solid var(--line); }
@@ -113,12 +113,6 @@
   .luncells { display:grid; grid-template-columns:repeat(10, 1fr); gap:2px; }
   .luncell { width:100%; aspect-ratio:1; border-radius:2px; }
 </style>
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#0B1F2A">
-<link rel="apple-touch-icon" href="icon-192.png">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Río Amigo">
 </head>
 <body>
 <div id="phone">
@@ -131,7 +125,79 @@
   <div class="nav" id="nav"></div>
 </div>
 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script>
+
+// === API DE CLIMA REAL (Open-Meteo) ===
+function fetchWeather(zoneKey){
+  var z = ZONES[zoneKey];
+  if (!z) return Promise.resolve();
+  var url = 'https://api.open-meteo.com/v1/forecast?latitude='+z.lat+'&longitude='+z.lon+
+    '&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m'+
+    '&hourly=temperature_2m,precipitation_probability,wind_speed_10m,wind_direction_10m,wind_gusts_10m'+
+    '&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant,precipitation_probability_max'+
+    '&timezone=America%2FArgentina%2FBuenos_Aires&forecast_days=7';
+  return fetch(url).then(function(r){ return r.json(); }).then(function(d){
+    WEATHER[zoneKey] = d;
+    computeLunar();
+    computeSun(d);
+    render();
+  }).catch(function(e){ console.log('Clima error:', e); });
+}
+
+function dirFromDeg(deg){
+  var dirs = ["N","NE","E","SE","S","SO","O","NO"];
+  return dirs[Math.round(((deg%360)/45)) % 8];
+}
+
+// Fase lunar — cálculo astronómico simple
+function computeLunar(){
+  var now = new Date();
+  // Días desde luna nueva conocida (2000-01-06 18:14 UTC)
+  var ref = new Date(Date.UTC(2000,0,6,18,14,0));
+  var days = (now - ref) / 86400000;
+  var synodic = 29.530588853;
+  var age = days % synodic;
+  var phase, icon;
+  if (age < 1.84566) { phase="Nueva"; icon="🌑"; }
+  else if (age < 5.53699) { phase="Creciente iluminante"; icon="🌒"; }
+  else if (age < 9.22831) { phase="Cuarto creciente"; icon="🌓"; }
+  else if (age < 12.91963) { phase="Gibosa creciente"; icon="🌔"; }
+  else if (age < 16.61096) { phase="Llena"; icon="🌕"; }
+  else if (age < 20.30228) { phase="Gibosa menguante"; icon="🌖"; }
+  else if (age < 23.99361) { phase="Cuarto menguante"; icon="🌗"; }
+  else if (age < 27.68493) { phase="Menguante"; icon="🌘"; }
+  else { phase="Nueva"; icon="🌑"; }
+  LUNAR_NOW = { phase: phase, icon: icon };
+}
+
+function computeSun(data){
+  if (!data || !data.daily) return;
+  var rise = data.daily.sunrise[0];
+  var set = data.daily.sunset[0];
+  if (rise) SUN_NOW.rise = rise.split("T")[1].slice(0,5);
+  if (set)  SUN_NOW.set  = set.split("T")[1].slice(0,5);
+}
+
+// Geolocalización: elegir la zona más cercana al arrancar
+function pickNearestZone(){
+  if (!navigator.geolocation) return;
+  navigator.geolocation.getCurrentPosition(function(pos){
+    var lat = pos.coords.latitude, lon = pos.coords.longitude;
+    var best = null, bestD = Infinity;
+    Object.keys(ZONES).forEach(function(k){
+      var z = ZONES[k];
+      var d = Math.pow(z.lat-lat,2) + Math.pow(z.lon-lon,2);
+      if (d < bestD) { bestD = d; best = k; }
+    });
+    if (best && best !== state.zone) {
+      state.zone = best;
+      fetchWeather(best);
+    }
+  }, function(err){ console.log('Geo:', err); }, { timeout: 10000 });
+}
+
+
 var state = { tab:"ambiente", zone:"rosario", fc:"7d", showForm:false, species:null, bait:null, depth:null, saved:false, inspect:false, lit:"fauna",
   fuel:45, oil:1.2,
   gear:{ Linterna:false, Carpa:false, Parrilla:false, Repelente:false, "Leña":false, Cargadores:false, Hielo:false, Pan:false, Bebidas:false, Comida:false },
@@ -140,9 +206,17 @@ var state = { tab:"ambiente", zone:"rosario", fc:"7d", showForm:false, species:n
 var DEPTHS = ["0-2", "2-4", "4-6", "6-8", "8+"];
 
 var ZONES = {
-  rosario:{ label:"Rosario", cond:"Parcialmente nublado · 21°", wind:14, gust:22, dir:"SE", angle:315, river:"3.20", trend:"bajando · -4 cm", rain:10 },
-  victoria:{ label:"Victoria", cond:"Viento en aumento · 18°", wind:30, gust:44, dir:"SO", angle:45, river:"3.05", trend:"estable · +1 cm", rain:35 }
+  esther:  { label:"Pueblo Esther",   lat:-33.11, lon:-60.59, river:"—", trend:"", prov:"Santa Fe" },
+  rosario: { label:"Rosario",         lat:-32.95, lon:-60.63, river:"—", trend:"", prov:"Santa Fe" },
+  sanlo:   { label:"San Lorenzo",     lat:-32.75, lon:-60.74, river:"—", trend:"", prov:"Santa Fe" },
+  gaboto:  { label:"Puerto Gaboto",   lat:-32.44, lon:-60.80, river:"—", trend:"", prov:"Santa Fe" },
+  victoria:{ label:"Victoria",        lat:-32.62, lon:-60.17, river:"—", trend:"", prov:"Entre Ríos" },
+  concordia:{ label:"Concordia",      lat:-31.39, lon:-58.02, river:"—", trend:"", prov:"Entre Ríos" },
+  esquina: { label:"Esquina",         lat:-30.01, lon:-59.52, river:"—", trend:"", prov:"Corrientes" }
 };
+var WEATHER = {};
+var LUNAR_NOW = { phase:"Creciente", rise:"", set:"", icon:"🌓" };
+var SUN_NOW = { rise:"", set:"" };
 var SOUTH = ["S","SO"];
 var SPECIES = ["Dorado","Surubí","Tararira","Pacú","Patí","Boga","Variada"];
 var BAITS = ["Morena","Anguila","Cascarudo","Lombriz","Sábalo","Tripa de pollo","Señuelo"];
@@ -198,8 +272,21 @@ function stateColor(s){ return s==="warn"?"var(--amber)":s==="bad"?"var(--red)":
 
 // ===== AMBIENTE =====
 function renderAmbiente(){
-  var z = ZONES[state.zone], a = assess(z.wind, z.dir);
-  var zbtns = Object.keys(ZONES).map(function(k){ return '<button class="'+(state.zone===k?"active":"")+'" onclick="setZone(\''+k+'\')">'+ZONES[k].label+'</button>'; }).join("");
+  var z = ZONES[state.zone];
+  var w = WEATHER[state.zone];
+  // Si no hay datos aún, dispara fetch
+  if (!w) { fetchWeather(state.zone); }
+  var cur = w && w.current ? w.current : null;
+  var wind = cur ? Math.round(cur.wind_speed_10m) : 0;
+  var gust = cur ? Math.round(cur.wind_gusts_10m) : 0;
+  var dir = cur ? dirFromDeg(cur.wind_direction_10m) : "—";
+  var angle = cur ? cur.wind_direction_10m : 0;
+  var temp = cur ? Math.round(cur.temperature_2m) : "—";
+  var cond = w ? ("Datos en vivo · " + temp + "°") : "Cargando datos reales...";
+  var a = assess(wind, dir);
+  var zbtns = Object.keys(ZONES).map(function(k){
+    return '<button class="'+(state.zone===k?"active":"")+'" onclick="setZone(\''+k+'\')">'+ZONES[k].label+'</button>';
+  }).join("");
   var rose = '<svg viewBox="0 0 90 90" width="90" height="90" style="flex-shrink:0;">'+
     '<circle cx="45" cy="45" r="42" fill="none" stroke="var(--line)" stroke-width="1.5"/>'+
     '<circle cx="45" cy="45" r="28" fill="none" stroke="var(--line)" stroke-width="1.5"/>'+
@@ -207,41 +294,70 @@ function renderAmbiente(){
     '<text x="45" y="83" text-anchor="middle" font-size="12" fill="var(--dim)" font-weight="700">S</text>'+
     '<text x="80" y="49" text-anchor="middle" font-size="12" fill="var(--dim)" font-weight="700">E</text>'+
     '<text x="10" y="49" text-anchor="middle" font-size="12" fill="var(--dim)" font-weight="700">O</text>'+
-    '<g style="transform:rotate('+z.angle+'deg);transform-origin:45px 45px;transition:transform .4s;">'+
+    '<g style="transform:rotate('+angle+'deg);transform-origin:45px 45px;transition:transform .4s;">'+
     '<line x1="45" y1="45" x2="45" y2="16" stroke="'+a.color+'" stroke-width="4" stroke-linecap="round"/>'+
     '<path d="M45 9 L39 21 L51 21 Z" fill="'+a.color+'"/></g></svg>';
-  // pronóstico
-  var rows = FORECAST[state.zone][state.fc];
-  var fc = rows.map(function(r, i){
-    var d = r[0], dir = r[1], w = r[2], col = windColor(w, dir);
-    var widthPct = Math.min(100, Math.round(w/50*100));
-    var conf = (state.fc==="7d" && i>=4) ? '<span class="conf">poco fiable</span>' : '';
-    return '<div class="fcrow"><span class="day">'+d+'</span>'+
-      '<div class="bars"><span class="dir" style="color:'+col+';">'+dir+'</span>'+
-      '<div class="bar" style="width:'+widthPct+'%;background:'+col+';"></div>'+
-      '<span class="kmh">'+w+'</span><span class="unit">km/h</span></div>'+conf+'</div>';
-  }).join("");
+  // Pronóstico extendido: usar daily del API
+  var fcHtml = "";
+  if (w && w.daily) {
+    var rows;
+    if (state.fc === "7d") {
+      rows = w.daily.time.slice(0,7).map(function(dt, i){
+        var ws = Math.round(w.daily.wind_speed_10m_max[i]);
+        var wd = dirFromDeg(w.daily.wind_direction_10m_dominant[i]);
+        var day = i===0 ? "Hoy" : new Date(dt).toLocaleDateString('es-AR',{weekday:'short'}).slice(0,3);
+        return { d: day.charAt(0).toUpperCase()+day.slice(1), dir: wd, w: ws, fiable: i<3 };
+      });
+    } else {
+      // 12h — tomamos de hourly
+      rows = [];
+      if (w.hourly) {
+        var hoursNow = new Date().getHours();
+        for (var i=0; i<12; i+=3){
+          var idx = hoursNow + i;
+          if (idx >= w.hourly.time.length) break;
+          var ws = Math.round(w.hourly.wind_speed_10m[idx]);
+          var wd = dirFromDeg(w.hourly.wind_direction_10m[idx]);
+          var lbl = i===0 ? "Ahora" : (("0"+((hoursNow+i)%24)).slice(-2)+"h");
+          rows.push({ d: lbl, dir: wd, w: ws, fiable: true });
+        }
+      }
+    }
+    fcHtml = rows.map(function(r){
+      var col = windColor(r.w, r.dir);
+      var widthPct = Math.min(100, Math.round(r.w/50*100));
+      var conf = !r.fiable ? '<span class="conf">poco fiable</span>' : '';
+      return '<div class="fcrow"><span class="day">'+r.d+'</span>'+
+        '<div class="bars"><span class="dir" style="color:'+col+';">'+r.dir+'</span>'+
+        '<div class="bar" style="width:'+widthPct+'%;background:'+col+';"></div>'+
+        '<span class="kmh">'+r.w+'</span><span class="unit">km/h</span></div>'+conf+'</div>';
+    }).join("");
+  } else {
+    fcHtml = '<div class="sub" style="text-align:center;padding:16px;">Cargando pronóstico...</div>';
+  }
+  var rain = (cur && cur.precipitation !== undefined) ? Math.round(cur.precipitation*10)/10 : "—";
+  var rainP = (w && w.daily && w.daily.precipitation_probability_max) ? w.daily.precipitation_probability_max[0] : null;
   return '<div class="pad">'+
-    '<div class="zonebtns">'+zbtns+'</div>'+
-    '<div class="rowbetween"><span class="dim">Ahora</span><span class="dim">'+z.cond+'</span></div>'+
+    '<div class="zonebtns" style="overflow-x:auto;white-space:nowrap;">'+zbtns+'</div>'+
+    '<div class="rowbetween"><span class="dim">Ahora · '+z.prov+'</span><span class="dim">'+cond+'</span></div>'+
     '<div class="windhero" style="background:'+a.bg+';border-color:'+a.color+';">'+
       '<div class="windtop">'+rose+
         '<div style="flex:1;">'+
           '<div style="display:flex;align-items:center;gap:8px;">'+
-            '<span style="font-size:32px;font-weight:800;color:'+a.color+';line-height:1;">'+z.dir+'</span>'+
+            '<span style="font-size:32px;font-weight:800;color:'+a.color+';line-height:1;">'+dir+'</span>'+
             (a.lvl!=="verde"?'<span style="font-size:26px;">⚠️</span>':'')+'</div>'+
-          '<div style="display:flex;align-items:baseline;gap:6px;margin-top:6px;"><span style="font-size:44px;font-weight:800;line-height:1;">'+z.wind+'</span><span class="unit">km/h</span></div>'+
-          '<div class="sub">ráfagas '+z.gust+' km/h</div></div></div>'+
+          '<div style="display:flex;align-items:baseline;gap:6px;margin-top:6px;"><span style="font-size:44px;font-weight:800;line-height:1;">'+wind+'</span><span class="unit">km/h</span></div>'+
+          '<div class="sub">ráfagas '+gust+' km/h</div></div></div>'+
       '<div class="verdict" style="color:'+a.color+';"><b>'+a.label+'.</b> <span style="color:var(--text);font-weight:400;">'+a.msg+'</span></div></div>'+
     '<div class="grid2">'+
-      card("Altura río", z.river, "m", z.trend, true)+
-      card("Lluvia", z.rain, "%", "próximas 6 h", true)+
-      card("Luna", "Creciente", "", "07:42 / 19:58", false)+
-      card("Sol", "07:18", "", "se pone 18:54", false)+'</div>'+
+      card("Altura río", z.river, "m", "Prefectura (próximamente)", true)+
+      card("Lluvia", (rainP !== null ? rainP : "—"), "%", "próximas 24 h", true)+
+      card("Luna", LUNAR_NOW.phase, "", LUNAR_NOW.icon+" fase actual", false)+
+      card("Sol", (SUN_NOW.rise||"—"), "", "se pone "+(SUN_NOW.set||"—"), false)+'</div>'+
     '<div class="secTitle">Pronóstico de viento</div>'+
     '<div class="toggle"><button class="'+(state.fc==="12h"?"on":"")+'" onclick="setFc(\'12h\')">12 horas</button>'+
       '<button class="'+(state.fc==="7d"?"on":"")+'" onclick="setFc(\'7d\')">7 días</button></div>'+
-    fc +
+    fcHtml +
     (state.fc==="7d" ? '<div class="sub" style="text-align:center;margin-top:8px;">Después del día 3 la confianza baja: tomalo como tendencia.</div>' : '')+
     '<div class="secTitle">Calendario lunar (referencia tradicional)</div>'+
     lunarTable()+
@@ -284,24 +400,21 @@ function lunarTable(){
 
 // ===== PUNTOS =====
 function renderPuntos(){
-  var map = '<div class="maparea" onclick="openForm()">'+
-    '<svg viewBox="0 0 360 420" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">'+
-    '<rect x="0" y="0" width="360" height="420" fill="#0E2C38"/>'+
-    '<path d="M-5 90 C 80 80, 110 170, 200 160 C 280 152, 320 200, 365 188 L 365 280 C 300 286, 260 250, 180 262 C 90 276, 60 230, -5 242 Z" fill="#16475A"/>'+
-    '<path d="M40 40 C 90 35, 120 70, 95 105 C 70 135, 20 120, 15 78 C 12 56, 22 44, 40 40 Z" fill="#1F5A3A"/>'+
-    '<path d="M250 50 C 300 45, 340 70, 335 105 C 330 135, 285 140, 260 115 C 240 95, 235 62, 250 50 Z" fill="#1F5A3A"/>'+
-    '<path d="M90 300 C 150 290, 200 315, 195 345 C 190 375, 120 375, 90 358 C 70 346, 72 308, 90 300 Z" fill="#1F5A3A"/>'+
-    '<text x="62" y="82" font-size="12" fill="#5DCAA5" font-style="italic">Isla del Sol</text>'+
-    '<text x="282" y="90" font-size="12" fill="#5DCAA5" font-style="italic">Isla Verde</text></svg>'+
-    '<div class="pin">📍</div><div class="hint">Tocá el mapa para clavar un punto</div>'+
-    '<button class="fab" onclick="event.stopPropagation();openForm()">+</button></div>';
-  if (!state.showForm) return map;
+  // Lee pines guardados en localStorage
+  var pins = [];
+  try { pins = JSON.parse(localStorage.getItem('rioamigo_pins')||'[]'); } catch(e){}
+  var map = '<div id="rioMap" style="height:60vh;min-height:380px;background:#0E2C38;"></div>';
+  var hintBar = '<div style="padding:8px 14px;background:var(--surface);font-size:13px;color:var(--dim);text-align:center;">Tocá el mapa para clavar un pesquero · '+pins.length+' guardados</div>';
+  if (!state.showForm) {
+    setTimeout(initMap, 50);
+    return map + hintBar;
+  }
   var inner;
   if (state.saved){
     inner = '<div style="text-align:center;padding:24px 0;"><div style="font-size:48px;">✓</div>'+
       '<div style="font-size:19px;font-weight:700;color:var(--green);margin-top:8px;">¡Punto guardado!</div>'+
       (state.depth?'<div class="sub" style="margin-top:6px;">Pozo de '+state.depth+' m anotado.</div>':'')+
-      '<div class="sub" style="margin-top:8px;line-height:1.5;">Viento, altura y luna de este momento<br>se guardaron solos con el punto.</div>'+
+      '<div class="sub" style="margin-top:8px;line-height:1.5;">Viento, altura y luna de este momento<br>se guardaron con el punto.</div>'+
       '<button class="btn" style="margin-top:18px;flex:none;padding:13px 26px;" onclick="resetForm()">Cargar otro</button></div>';
   } else {
     var sp = SPECIES.map(function(o){ return '<button class="chip '+(state.species===o?"on":"")+'" onclick="pickSpecies(\''+o+'\')">'+o+'</button>'; }).join("");
@@ -314,7 +427,78 @@ function renderPuntos(){
       '<div class="btnrow"><button class="btn">📷 Foto</button><button class="btn primary" onclick="savepoint()">Guardar</button></div>'+
       '<div style="font-size:13px;color:var(--green);margin-top:12px;text-align:center;line-height:1.4;">Podés guardar sin elegir nada. Todo es opcional.</div>';
   }
-  return map + '<div class="pad">'+inner+'</div>';
+  setTimeout(initMap, 50);
+  return map + hintBar + '<div class="pad">'+inner+'</div>';
+}
+
+var leafletMap = null;
+var leafletMarkers = [];
+function initMap(){
+  var el = document.getElementById('rioMap');
+  if (!el || typeof L === 'undefined') return;
+  // Si ya hay mapa en este div, destruirlo
+  if (leafletMap) { leafletMap.remove(); leafletMap = null; leafletMarkers = []; }
+  var z = ZONES[state.zone];
+  leafletMap = L.map('rioMap', { zoomControl: true, attributionControl: false }).setView([z.lat, z.lon], 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© OpenStreetMap'
+  }).addTo(leafletMap);
+  L.control.attribution({ prefix: false }).addAttribution('© OSM').addTo(leafletMap);
+  // Pines guardados
+  var pins = [];
+  try { pins = JSON.parse(localStorage.getItem('rioamigo_pins')||'[]'); } catch(e){}
+  pins.forEach(function(p){
+    var mk = L.marker([p.lat, p.lon]).addTo(leafletMap);
+    var popup = '<b>'+(p.species||'Sin especie')+'</b><br>'+
+                (p.bait? 'Carnada: '+p.bait+'<br>':'')+
+                (p.depth? 'Pozo: '+p.depth+' m<br>':'')+
+                (p.wind? 'Viento: '+p.wind+' km/h '+p.dir+'<br>':'')+
+                (p.date? '<small>'+p.date+'</small>':'');
+    mk.bindPopup(popup);
+    leafletMarkers.push(mk);
+  });
+  // Click para pin nuevo
+  leafletMap.on('click', function(e){
+    state.pendingLat = e.latlng.lat;
+    state.pendingLon = e.latlng.lng;
+    state.showForm = true;
+    render();
+  });
+  // Intentar centrar en la ubicación real del usuario si acepta
+  if (navigator.geolocation && !state.geoAsked) {
+    state.geoAsked = true;
+    navigator.geolocation.getCurrentPosition(function(pos){
+      if (leafletMap) {
+        L.circleMarker([pos.coords.latitude, pos.coords.longitude], {
+          radius: 8, color: '#4FC3F7', fillColor:'#4FC3F7', fillOpacity:0.5
+        }).addTo(leafletMap).bindPopup('Estás acá');
+        leafletMap.setView([pos.coords.latitude, pos.coords.longitude], 14);
+      }
+    }, function(){}, { timeout: 8000 });
+  }
+}
+
+function savepoint(){
+  var w = WEATHER[state.zone];
+  var cur = w && w.current ? w.current : null;
+  var pin = {
+    lat: state.pendingLat || ZONES[state.zone].lat,
+    lon: state.pendingLon || ZONES[state.zone].lon,
+    species: state.species,
+    bait: state.bait,
+    depth: state.depth,
+    wind: cur ? Math.round(cur.wind_speed_10m) : null,
+    dir: cur ? dirFromDeg(cur.wind_direction_10m) : null,
+    lunar: LUNAR_NOW.phase,
+    date: new Date().toLocaleDateString('es-AR')
+  };
+  var pins = [];
+  try { pins = JSON.parse(localStorage.getItem('rioamigo_pins')||'[]'); } catch(e){}
+  pins.push(pin);
+  try { localStorage.setItem('rioamigo_pins', JSON.stringify(pins)); } catch(e){}
+  state.saved=true;
+  render();
 }
 
 // ===== LANCHA =====
@@ -459,14 +643,14 @@ function render(){
   }).join("");
 }
 function setTab(t){ state.tab=t; if(t!=="puntos"){state.showForm=false;state.saved=false;} if(t!=="lancha"){state.inspect=false;} document.getElementById("screen").scrollTop=0; render(); }
-function setZone(z){ state.zone=z; render(); }
+function setZone(z){ state.zone=z; if(!WEATHER[z]) fetchWeather(z); render(); }
 function setFc(f){ state.fc=f; render(); }
 function openForm(){ state.showForm=true; render(); }
 function resetForm(){ state.showForm=false; state.species=null; state.bait=null; state.depth=null; state.saved=false; render(); }
 function pickSpecies(o){ state.species=(state.species===o?null:o); render(); }
 function pickBait(o){ state.bait=(state.bait===o?null:o); render(); }
 function pickDepth(o){ state.depth=(state.depth===o?null:o); render(); }
-function savepoint(){ state.saved=true; render(); }
+
 function openInspect(){ state.inspect=true; document.getElementById("screen").scrollTop=0; render(); }
 function closeInspect(){ state.inspect=false; render(); }
 function adjFuel(kind, delta){
@@ -495,14 +679,11 @@ function gearList(){
 function toggleGear(item){ state.gear[item] = !state.gear[item]; state.gearSaved=false; render(); }
 function saveGear(){ state.gearSaved=true; render(); }
 
+// Boot: calcular luna, buscar zona más cercana por GPS, traer clima
+computeLunar();
+pickNearestZone();
+fetchWeather(state.zone);
 render();
-</script>
-<script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', function() {
-    navigator.serviceWorker.register('sw.js').catch(function(e){ console.log('SW:', e); });
-  });
-}
 </script>
 </body>
 </html>
