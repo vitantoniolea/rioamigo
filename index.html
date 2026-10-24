@@ -105,6 +105,13 @@
   .gearbox { width:26px; height:26px; border-radius:7px; border:2px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:800; color:var(--bg); flex-shrink:0; }
   .gearbox.on { background:var(--green); border-color:var(--green); }
   .lunlegwrap { display:grid; grid-template-columns:1fr 1fr; gap:6px 14px; margin-bottom:14px; }
+  .caldow { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; margin-bottom:4px; }
+  .caldow span { text-align:center; font-size:12px; font-weight:700; color:var(--dim); padding:4px 0; }
+  .calgrid { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; }
+  .calcell { aspect-ratio:1; border-radius:8px; border:1.5px solid transparent; display:flex; align-items:center; justify-content:center; cursor:pointer; position:relative; }
+  .calcell.empty { border:none; background:transparent !important; cursor:default; }
+  .calcell.today { outline:2px solid var(--accent); outline-offset:1px; }
+  .caldnum { font-size:14px; font-weight:700; }
   .lunleg { display:flex; align-items:center; gap:7px; }
   .lundot { width:12px; height:12px; border-radius:3px; flex-shrink:0; }
   .lungrid { display:grid; grid-template-columns:1fr 1fr; gap:8px 12px; }
@@ -198,6 +205,7 @@ function pickNearestZone(){
 }
 
 
+var CAL = { year: new Date().getFullYear(), month: new Date().getMonth() };
 var state = { tab:"ambiente", zone:"rosario", fc:"7d", showForm:false, species:null, bait:null, depth:null, saved:false, inspect:false, lit:"fauna",
   fuel:45, oil:1.2,
   gear:{ Linterna:false, Carpa:false, Parrilla:false, Repelente:false, "Leña":false, Cargadores:false, Hielo:false, Pan:false, Bebidas:false, Comida:false },
@@ -377,28 +385,91 @@ var LUNAR = [
 var MONTHS = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
 function lunarColor(i){ return [ "var(--green)","var(--accent)","var(--amber)","var(--dim)" ][i%4]; }
 function lunarTable(){
-  var legend = LUNAR.map(function(l){
-    return '<div class="lunleg"><span class="lundot" style="background:'+l.color+';"></span>'+
-      '<span style="font-size:13px;">'+l.phase+'</span>'+
-      '<span style="font-size:12px;color:var(--dim);margin-left:auto;">'+l.rate+'</span></div>';
-  }).join("");
-  // grilla anual: cada mes una tira de ~30 cuadraditos con la fase rotando
-  var grid = MONTHS.map(function(m, mi){
-    var cells = "";
-    for (var d=0; d<30; d++){
-      var phaseIdx = Math.floor(((d + mi*4) % 28) / 7);
-      cells += '<span class="luncell" style="background:'+lunarColor(phaseIdx)+';"></span>';
-    }
-    return '<div class="lunmonth"><div class="lunmlbl">'+m+'</div><div class="luncells">'+cells+'</div></div>';
-  }).join("");
-  return '<div class="card" style="padding:12px 14px;">'+
-    '<div class="lunlegwrap">'+legend+'</div>'+
-    '<div class="lungrid">'+grid+'</div>'+
-    '<div class="sub" style="text-align:center;margin-top:10px;">Calendario de pesca 2026 · referencia tradicional fija. Hoy: Creciente.</div>'+
+  var MONTH_NAMES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+  var DOW = ["L","M","M","J","V","S","D"];
+  var year = CAL.year, month = CAL.month;
+  var today = new Date();
+  var isCurrentMonth = (today.getFullYear()===year && today.getMonth()===month);
+  var firstDay = new Date(year, month, 1);
+  // Lunes=0, Martes=1, ..., Domingo=6
+  var startDow = (firstDay.getDay() + 6) % 7;
+  var daysInMonth = new Date(year, month+1, 0).getDate();
+  
+  // Función: fase lunar para una fecha dada
+  function phaseFor(date){
+    var ref = new Date(Date.UTC(2000,0,6,18,14,0));
+    var days = (date - ref) / 86400000;
+    var age = ((days % 29.530588853) + 29.530588853) % 29.530588853;
+    if (age < 1.84566)  return { idx:0, label:"Nueva", rate:"Óptima", color:"var(--green)", bg:"var(--greenBg)" };
+    if (age < 5.53699)  return { idx:1, label:"Creciente", rate:"Regular", color:"var(--amber)", bg:"var(--amberBg)" };
+    if (age < 9.22831)  return { idx:1, label:"Cuarto crec.", rate:"Regular", color:"var(--amber)", bg:"var(--amberBg)" };
+    if (age < 12.91963) return { idx:1, label:"Gibosa crec.", rate:"Regular", color:"var(--amber)", bg:"var(--amberBg)" };
+    if (age < 16.61096) return { idx:2, label:"Llena", rate:"Neutra", color:"var(--dim)", bg:"var(--surface)" };
+    if (age < 20.30228) return { idx:3, label:"Gibosa meng.", rate:"Buena", color:"var(--accent)", bg:"var(--surface2)" };
+    if (age < 23.99361) return { idx:3, label:"Cuarto meng.", rate:"Buena", color:"var(--accent)", bg:"var(--surface2)" };
+    if (age < 27.68493) return { idx:3, label:"Menguante", rate:"Buena", color:"var(--accent)", bg:"var(--surface2)" };
+    return { idx:0, label:"Nueva", rate:"Óptima", color:"var(--green)", bg:"var(--greenBg)" };
+  }
+
+  // Header con navegación
+  var header = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'+
+    '<button class="fuelbtn" onclick="calPrev()" style="width:36px;height:36px;">‹</button>'+
+    '<span style="font-weight:700;font-size:16px;">'+MONTH_NAMES[month]+' '+year+'</span>'+
+    '<button class="fuelbtn" onclick="calNext()" style="width:36px;height:36px;">›</button>'+
+    '</div>';
+
+  // Leyenda compacta
+  var legend = '<div class="lunlegwrap" style="margin-bottom:10px;">'+
+    '<div class="lunleg"><span class="lundot" style="background:var(--green);"></span><span style="font-size:12px;">Nueva (Óptima)</span></div>'+
+    '<div class="lunleg"><span class="lundot" style="background:var(--accent);"></span><span style="font-size:12px;">Menguante (Buena)</span></div>'+
+    '<div class="lunleg"><span class="lundot" style="background:var(--amber);"></span><span style="font-size:12px;">Creciente (Regular)</span></div>'+
+    '<div class="lunleg"><span class="lundot" style="background:var(--dim);"></span><span style="font-size:12px;">Llena (Neutra)</span></div>'+
+    '</div>';
+
+  // Encabezado días de la semana
+  var dowRow = '<div class="caldow">' + DOW.map(function(d){ return '<span>'+d+'</span>'; }).join("") + '</div>';
+
+  // Grilla de días
+  var cells = "";
+  for (var i=0; i<startDow; i++) cells += '<span class="calcell empty"></span>';
+  for (var d=1; d<=daysInMonth; d++){
+    var dt = new Date(year, month, d, 12, 0, 0);
+    var ph = phaseFor(dt);
+    var isToday = (isCurrentMonth && d===today.getDate());
+    cells += '<span class="calcell'+(isToday?' today':'')+'" style="background:'+ph.bg+';border-color:'+ph.color+';" onclick="calDayInfo('+year+','+month+','+d+')">'+
+      '<span class="caldnum" style="color:'+(ph.idx===2?'var(--text)':ph.color)+';">'+d+'</span>'+
+      '</span>';
+  }
+
+  return '<div class="card" style="padding:14px;">'+
+    header+legend+dowRow+
+    '<div class="calgrid">'+cells+'</div>'+
+    '<div class="sub" style="text-align:center;margin-top:10px;">Fases astronómicas reales · tocá un día para ver la fase.</div>'+
     '</div>';
 }
 
-// ===== PUNTOS =====
+function calPrev(){ CAL.month--; if (CAL.month<0){ CAL.month=11; CAL.year--; } render(); }
+function calNext(){ CAL.month++; if (CAL.month>11){ CAL.month=0; CAL.year++; } render(); }
+function calDayInfo(y,m,d){
+  var MONTH_NAMES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+  var dt = new Date(y, m, d, 12, 0, 0);
+  var ref = new Date(Date.UTC(2000,0,6,18,14,0));
+  var days = (dt - ref) / 86400000;
+  var age = ((days % 29.530588853) + 29.530588853) % 29.530588853;
+  var ph, rate;
+  if (age < 1.84566)       { ph="Luna nueva"; rate="Óptima"; }
+  else if (age < 5.53699)  { ph="Creciente iluminante"; rate="Regular"; }
+  else if (age < 9.22831)  { ph="Cuarto creciente"; rate="Regular"; }
+  else if (age < 12.91963) { ph="Gibosa creciente"; rate="Regular"; }
+  else if (age < 16.61096) { ph="Luna llena"; rate="Neutra"; }
+  else if (age < 20.30228) { ph="Gibosa menguante"; rate="Buena"; }
+  else if (age < 23.99361) { ph="Cuarto menguante"; rate="Buena"; }
+  else if (age < 27.68493) { ph="Menguante"; rate="Buena"; }
+  else                     { ph="Luna nueva"; rate="Óptima"; }
+  alert(d+' de '+MONTH_NAMES[m]+' de '+y+'\n'+ph+'\nPronóstico tradicional: '+rate);
+}
+
+
 function renderPuntos(){
   // Lee pines guardados en localStorage
   var pins = [];
