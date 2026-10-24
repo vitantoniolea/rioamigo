@@ -474,7 +474,7 @@ function renderPuntos(){
   // Lee pines guardados en localStorage
   var pins = [];
   try { pins = JSON.parse(localStorage.getItem('rioamigo_pins')||'[]'); } catch(e){}
-  var map = '<div id="rioMap" style="height:60vh;min-height:380px;background:#0E2C38;"></div>';
+  var map = '<div id="rioMap" style="width:100%;height:65vh;min-height:420px;background:#0E2C38;position:relative;z-index:1;"></div>';
   var hintBar = '<div style="padding:8px 14px;background:var(--surface);font-size:13px;color:var(--dim);text-align:center;">Tocá el mapa para clavar un pesquero · '+pins.length+' guardados</div>';
   if (!state.showForm) {
     setTimeout(initMap, 50);
@@ -510,7 +510,10 @@ function initMap(){
   // Si ya hay mapa en este div, destruirlo
   if (leafletMap) { leafletMap.remove(); leafletMap = null; leafletMarkers = []; }
   var z = ZONES[state.zone];
-  leafletMap = L.map('rioMap', { zoomControl: true, attributionControl: false }).setView([z.lat, z.lon], 13);
+  leafletMap = L.map('rioMap', { zoomControl: true, attributionControl: false, tap: true }).setView([z.lat, z.lon], 13);
+  // Recalcular tamaño después de render (fix clásico de Leaflet en contenedores dinámicos)
+  setTimeout(function(){ if (leafletMap) leafletMap.invalidateSize(); }, 100);
+  setTimeout(function(){ if (leafletMap) leafletMap.invalidateSize(); }, 500);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
     attribution: '© OpenStreetMap'
