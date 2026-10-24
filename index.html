@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Río Amigo — Prototipo</title>
+<style>
+  :root {
+    --bg:#0B1F2A; --surface:#13313F; --surface2:#1C4150; --line:#2C5566;
+    --text:#F2F7F9; --dim:#9FBAC6;
+    --green:#3DDC84; --greenBg:#103A2A;
+    --amber:#FFC542; --amberBg:#3D2F08;
+    --red:#FF5A4D; --redBg:#3D1512;
+    --accent:#4FC3F7;
+  }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; margin:0; padding:0; }
+  html,body { background:#05141C; font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; color:var(--text); min-height:100vh; }
+  body { display:flex; justify-content:center; }
+  #phone { width:100%; max-width:430px; background:var(--bg); min-height:100vh; display:flex; flex-direction:column; overflow:hidden; }
+  .topbar { display:flex; align-items:center; gap:8px; padding:16px; border-bottom:1px solid var(--line); flex-shrink:0; }
+  .topbar .title { font-size:19px; font-weight:800; letter-spacing:.3px; }
+  .topbar .offline { margin-left:auto; font-size:12px; color:var(--green); }
+  #screen { flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+  .nav { display:flex; border-top:1px solid var(--line); background:var(--surface); flex-shrink:0; }
+  .nav button { flex:1; padding:10px 0; border:none; background:transparent; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:2px; color:var(--dim); border-top:3px solid transparent; font-size:11px; }
+  .nav button.active { color:var(--accent); border-top-color:var(--accent); font-weight:700; }
+  .nav button .ico { font-size:22px; }
+  .pad { padding:16px; }
+  .dim { color:var(--dim); font-size:14px; }
+  .rowbetween { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; }
+
+  .zonebtns { display:flex; gap:8px; margin-bottom:16px; }
+  .zonebtns button { flex:1; padding:16px 0; font-size:17px; font-weight:700; border-radius:12px; cursor:pointer; border:2px solid var(--line); background:transparent; color:var(--text); }
+  .zonebtns button.active { border-color:var(--accent); background:var(--accent); color:var(--bg); }
+
+  .windhero { border-radius:16px; padding:16px; margin-bottom:12px; border:2px solid var(--line); }
+  .windtop { display:flex; align-items:center; gap:16px; }
+  .unit { font-size:14px; color:var(--dim); }
+  .sub { font-size:13px; color:var(--dim); margin-top:2px; }
+  .verdict { margin-top:14px; padding:12px 14px; border-radius:12px; background:var(--bg); font-size:15px; line-height:1.4; }
+
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .card { background:var(--surface); border-radius:12px; padding:14px; }
+  .card .lbl { font-size:14px; color:var(--dim); margin-bottom:6px; }
+  .card .val { font-size:26px; font-weight:700; }
+  .card .valsm { font-size:18px; font-weight:700; }
+
+  .secTitle { font-size:16px; font-weight:700; margin:20px 0 6px; }
+  .toggle { display:flex; gap:6px; background:var(--surface); border-radius:10px; padding:4px; margin-bottom:12px; }
+  .toggle button { flex:1; padding:10px 0; border:none; background:transparent; color:var(--dim); font-size:14px; font-weight:600; border-radius:7px; cursor:pointer; }
+  .toggle button.on { background:var(--accent); color:var(--bg); }
+  .fcrow { display:flex; align-items:center; gap:10px; padding:11px 12px; border-radius:10px; background:var(--surface); margin-bottom:8px; }
+  .fcrow .day { width:64px; font-size:13px; color:var(--dim); flex-shrink:0; }
+  .fcrow .bars { flex:1; display:flex; align-items:center; gap:8px; }
+  .fcrow .dir { font-size:15px; font-weight:700; width:34px; }
+  .fcrow .kmh { font-size:15px; font-weight:700; }
+  .bar { height:8px; border-radius:4px; }
+  .conf { font-size:11px; color:var(--dim); font-style:italic; margin-left:auto; }
+
+  .maparea { position:relative; height:56vh; min-height:360px; background:#0E2C38; overflow:hidden; cursor:pointer; }
+  .hint { position:absolute; top:16px; left:16px; right:16px; background:rgba(11,31,42,.88); border-radius:12px; padding:10px 14px; font-size:14px; color:var(--dim); text-align:center; }
+  .fab { position:absolute; right:18px; bottom:18px; width:66px; height:66px; border-radius:50%; background:var(--accent); color:var(--bg); border:none; font-size:38px; font-weight:700; cursor:pointer; line-height:1; box-shadow:0 4px 14px rgba(0,0,0,.45); }
+  .pin { position:absolute; left:42%; top:38%; transform:translate(-50%,-100%); font-size:36px; }
+
+  .chips { display:flex; flex-wrap:wrap; gap:8px; }
+  .chip { padding:11px 17px; font-size:15px; font-weight:600; border-radius:999px; cursor:pointer; border:2px solid var(--line); background:transparent; color:var(--text); }
+  .chip.on { border-color:var(--accent); background:var(--accent); color:var(--bg); }
+  .btnrow { display:flex; gap:10px; margin-top:16px; }
+  .btn { flex:1; padding:17px; font-size:16px; font-weight:600; border-radius:12px; cursor:pointer; border:2px solid var(--line); background:transparent; color:var(--text); }
+  .btn.primary { background:var(--green); color:var(--bg); border:none; font-weight:800; }
+  .fuelbtn { width:40px; height:40px; border-radius:10px; border:2px solid var(--line); background:transparent; color:var(--accent); font-size:22px; font-weight:800; cursor:pointer; flex-shrink:0; line-height:1; }
+  .fuelinput { flex:1; width:100%; text-align:center; font-size:24px; font-weight:800; color:var(--text); background:transparent; border:none; border-bottom:2px solid var(--line); padding:4px 0; -moz-appearance:textfield; }
+  .fuelinput::-webkit-outer-spin-button, .fuelinput::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
+  .exsub { font-size:13px; font-weight:700; color:var(--accent); margin-bottom:2px; }
+  .exline { display:flex; justify-content:space-between; font-size:13px; color:var(--dim); padding:3px 0; }
+  .exline span:last-child { font-weight:700; color:var(--text); }
+  .closebtn { background:none; border:none; color:var(--dim); font-size:26px; cursor:pointer; }
+
+  .boatrow { display:flex; align-items:center; gap:10px; padding:11px 0; border-bottom:1px solid var(--line); }
+  .dot { width:11px; height:11px; border-radius:50%; flex-shrink:0; }
+  .guardian { display:flex; align-items:center; gap:10px; padding:13px 14px; border-radius:12px; background:var(--amberBg); border:2px solid var(--amber); margin-bottom:18px; font-size:14px; line-height:1.4; }
+  .inspectbtn { position:sticky; bottom:16px; margin:16px; width:calc(100% - 32px); padding:19px; font-size:18px; font-weight:800; border-radius:14px; border:none; background:var(--accent); color:var(--bg); cursor:pointer; box-shadow:0 4px 14px rgba(0,0,0,.45); }
+  .inspecthead { display:flex; align-items:center; gap:10px; padding:16px; background:var(--accent); color:var(--bg); }
+  .seclbl { font-size:13px; color:var(--dim); text-transform:uppercase; letter-spacing:1px; margin:18px 0 10px; }
+  .bigrow { display:flex; align-items:center; gap:12px; padding:15px 0; border-bottom:1px solid var(--line); }
+  .bigrow .info { flex:1; }
+  .bigrow .info .l { font-size:14px; color:var(--dim); }
+  .bigrow .info .v { font-size:19px; font-weight:700; }
+
+  .tabs { display:flex; gap:6px; margin-bottom:14px; }
+  .tabs button { flex:1; padding:12px 0; border:none; background:var(--surface); color:var(--dim); font-size:14px; font-weight:600; border-radius:10px; cursor:pointer; }
+  .tabs button.on { background:var(--accent); color:var(--bg); }
+  .litcard { background:var(--surface); border-radius:12px; padding:14px; margin-bottom:10px; }
+  .litcard .h { display:flex; align-items:center; gap:8px; }
+  .litcard .name { font-size:17px; font-weight:700; }
+  .litcard .meta { font-size:13px; color:var(--dim); margin-top:6px; line-height:1.5; }
+  .badge { font-size:12px; font-weight:700; padding:4px 10px; border-radius:999px; margin-left:auto; }
+  .badge.good { background:var(--greenBg); color:var(--green); }
+  .badge.bad { background:var(--redBg); color:var(--red); }
+  .badge.season { background:var(--surface2); color:var(--accent); }
+  .legalnote { font-size:12px; color:var(--amber); background:var(--amberBg); border-radius:8px; padding:8px 10px; margin-top:8px; line-height:1.4; }
+  .campbanner { padding:13px 14px; border-radius:12px; margin-bottom:14px; font-size:14px; line-height:1.45; border:2px solid var(--line); }
+  .gearitem { display:flex; align-items:center; gap:12px; padding:11px 4px; border-bottom:1px solid var(--line); font-size:15px; cursor:pointer; }
+  .gearitem:last-child { border-bottom:none; }
+  .gearbox { width:26px; height:26px; border-radius:7px; border:2px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:800; color:var(--bg); flex-shrink:0; }
+  .gearbox.on { background:var(--green); border-color:var(--green); }
+  .lunlegwrap { display:grid; grid-template-columns:1fr 1fr; gap:6px 14px; margin-bottom:14px; }
+  .lunleg { display:flex; align-items:center; gap:7px; }
+  .lundot { width:12px; height:12px; border-radius:3px; flex-shrink:0; }
+  .lungrid { display:grid; grid-template-columns:1fr 1fr; gap:8px 12px; }
+  .lunmonth { display:flex; flex-direction:column; gap:3px; }
+  .lunmlbl { font-size:12px; color:var(--dim); font-weight:700; }
+  .luncells { display:grid; grid-template-columns:repeat(10, 1fr); gap:2px; }
+  .luncell { width:100%; aspect-ratio:1; border-radius:2px; }
+</style>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0B1F2A">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Río Amigo">
+</head>
+<body>
+<div id="phone">
+  <div class="topbar">
+    <span style="font-size:22px;">⚓</span>
+    <span class="title">Río Amigo</span>
+    <span class="offline">● offline</span>
+  </div>
+  <div id="screen"></div>
+  <div class="nav" id="nav"></div>
+</div>
+
+<script>
+var state = { tab:"ambiente", zone:"rosario", fc:"7d", showForm:false, species:null, bait:null, depth:null, saved:false, inspect:false, lit:"fauna",
+  fuel:45, oil:1.2,
+  gear:{ Linterna:false, Carpa:false, Parrilla:false, Repelente:false, "Leña":false, Cargadores:false, Hielo:false, Pan:false, Bebidas:false, Comida:false },
+  gearSaved:false,
+  exc:{ dist:40, speed:25, consumo:18, dias:2, zona:25 } };
+var DEPTHS = ["0-2", "2-4", "4-6", "6-8", "8+"];
+
+var ZONES = {
+  rosario:{ label:"Rosario", cond:"Parcialmente nublado · 21°", wind:14, gust:22, dir:"SE", angle:315, river:"3.20", trend:"bajando · -4 cm", rain:10 },
+  victoria:{ label:"Victoria", cond:"Viento en aumento · 18°", wind:30, gust:44, dir:"SO", angle:45, river:"3.05", trend:"estable · +1 cm", rain:35 }
+};
+var SOUTH = ["S","SO"];
+var SPECIES = ["Dorado","Surubí","Tararira","Pacú","Patí","Boga","Variada"];
+var BAITS = ["Morena","Anguila","Cascarudo","Lombriz","Sábalo","Tripa de pollo","Señuelo"];
+
+// Pronóstico extendido mock (12h y 7d) por zona
+var FORECAST = {
+  rosario: {
+    "12h":[["Ahora","SE",14],["12h","SE",16],["15h","E",18],["18h","E",15],["21h","NE",12]],
+    "7d":[["Hoy","SE",14],["Vie","E",18],["Sáb","NE",20],["Dom","N",16],["Lun","NO",24],["Mar","O",22],["Mié","SO",28]]
+  },
+  victoria: {
+    "12h":[["Ahora","SO",30],["12h","SO",34],["15h","SO",38],["18h","S",32],["21h","S",26]],
+    "7d":[["Hoy","SO",30],["Vie","S",28],["Sáb","SE",20],["Dom","E",16],["Lun","NE",18],["Mar","N",22],["Mié","NO",26]]
+  }
+};
+
+var DOCS = [
+  {label:"Carnet náutico", value:"Timonel · vto 03/2027", state:"ok"},
+  {label:"Matrícula REY", value:"04-1278 · vigente", state:"ok"},
+  {label:"Seguro / póliza", value:"vence en 38 días", state:"warn"}
+];
+var SAFETY = [
+  {label:"Matafuegos ABC", value:"vence en 23 días", state:"warn"},
+  {label:"Bengalas", value:"vigentes · 11/2026", state:"ok"},
+  {label:"Chalecos (4)", value:"en regla", state:"ok"},
+  {label:"Luces de navegación", value:"OK", state:"ok"}
+];
+
+// Guía del Litoral mock
+var FAUNA = [
+  {name:"Dorado", season:"Primavera-verano", bait:"Morena, señuelo", size:"Talla mínima 70 cm"},
+  {name:"Surubí", season:"Verano (aguas altas)", bait:"Morena, anguila", size:"Talla mínima 80 cm"},
+  {name:"Pacú", season:"Verano", bait:"Fruta, maíz", size:"Talla mínima 45 cm"},
+  {name:"Boga", season:"Todo el año", bait:"Lombriz, masa", size:"Sin talla, respetar veda"}
+];
+var FLORA = [
+  {name:"Sauce criollo", use:"good", note:"Buena leña, brasa pareja para el asado."},
+  {name:"Aliso de río", use:"good", note:"Prende fácil, sirve para arrancar el fuego."},
+  {name:"Ceibo", use:"bad", note:"Madera blanda, larga mucho humo. Mejor evitar."},
+  {name:"Camalote", use:"bad", note:"No es leña. ¡Ojo! Tapa la hélice del motor."}
+];
+
+function assess(wind, dir){
+  var south = SOUTH.indexOf(dir) >= 0;
+  if (wind>=50) return {lvl:"critico", label:"Innavegable", msg:"Río picado. No se cruza el canal principal.", color:"var(--red)", bg:"var(--redBg)"};
+  if (wind>=40) return {lvl:"rojo", label:"Peligro", msg:"Peligroso en zonas abiertas. Riesgo de vuelta de campana.", color:"var(--red)", bg:"var(--redBg)"};
+  if (south && wind>=25) return {lvl:"rojo", label:"Peligro · viento Sur", msg:"El Pampero sopla contra la corriente: ola corta y cruzada. Rojo en el canal.", color:"var(--red)", bg:"var(--redBg)"};
+  if (wind>=25) return {lvl:"amarillo", label:"Precaución", msg:"Molesto en el canal por oleaje. Viable refugiado en los riachos.", color:"var(--amber)", bg:"var(--amberBg)"};
+  return {lvl:"verde", label:"Óptimo", msg:"Navegación limpia y pesca cómoda en cualquier lado.", color:"var(--green)", bg:"var(--greenBg)"};
+}
+function windColor(wind, dir){ return assess(wind,dir).color; }
+function stateColor(s){ return s==="warn"?"var(--amber)":s==="bad"?"var(--red)":"var(--green)"; }
+
+// ===== AMBIENTE =====
+function renderAmbiente(){
+  var z = ZONES[state.zone], a = assess(z.wind, z.dir);
+  var zbtns = Object.keys(ZONES).map(function(k){ return '<button class="'+(state.zone===k?"active":"")+'" onclick="setZone(\''+k+'\')">'+ZONES[k].label+'</button>'; }).join("");
+  var rose = '<svg viewBox="0 0 90 90" width="90" height="90" style="flex-shrink:0;">'+
+    '<circle cx="45" cy="45" r="42" fill="none" stroke="var(--line)" stroke-width="1.5"/>'+
+    '<circle cx="45" cy="45" r="28" fill="none" stroke="var(--line)" stroke-width="1.5"/>'+
+    '<text x="45" y="14" text-anchor="middle" font-size="12" fill="var(--dim)" font-weight="700">N</text>'+
+    '<text x="45" y="83" text-anchor="middle" font-size="12" fill="var(--dim)" font-weight="700">S</text>'+
+    '<text x="80" y="49" text-anchor="middle" font-size="12" fill="var(--dim)" font-weight="700">E</text>'+
+    '<text x="10" y="49" text-anchor="middle" font-size="12" fill="var(--dim)" font-weight="700">O</text>'+
+    '<g style="transform:rotate('+z.angle+'deg);transform-origin:45px 45px;transition:transform .4s;">'+
+    '<line x1="45" y1="45" x2="45" y2="16" stroke="'+a.color+'" stroke-width="4" stroke-linecap="round"/>'+
+    '<path d="M45 9 L39 21 L51 21 Z" fill="'+a.color+'"/></g></svg>';
+  // pronóstico
+  var rows = FORECAST[state.zone][state.fc];
+  var fc = rows.map(function(r, i){
+    var d = r[0], dir = r[1], w = r[2], col = windColor(w, dir);
+    var widthPct = Math.min(100, Math.round(w/50*100));
+    var conf = (state.fc==="7d" && i>=4) ? '<span class="conf">poco fiable</span>' : '';
+    return '<div class="fcrow"><span class="day">'+d+'</span>'+
+      '<div class="bars"><span class="dir" style="color:'+col+';">'+dir+'</span>'+
+      '<div class="bar" style="width:'+widthPct+'%;background:'+col+';"></div>'+
+      '<span class="kmh">'+w+'</span><span class="unit">km/h</span></div>'+conf+'</div>';
+  }).join("");
+  return '<div class="pad">'+
+    '<div class="zonebtns">'+zbtns+'</div>'+
+    '<div class="rowbetween"><span class="dim">Ahora</span><span class="dim">'+z.cond+'</span></div>'+
+    '<div class="windhero" style="background:'+a.bg+';border-color:'+a.color+';">'+
+      '<div class="windtop">'+rose+
+        '<div style="flex:1;">'+
+          '<div style="display:flex;align-items:center;gap:8px;">'+
+            '<span style="font-size:32px;font-weight:800;color:'+a.color+';line-height:1;">'+z.dir+'</span>'+
+            (a.lvl!=="verde"?'<span style="font-size:26px;">⚠️</span>':'')+'</div>'+
+          '<div style="display:flex;align-items:baseline;gap:6px;margin-top:6px;"><span style="font-size:44px;font-weight:800;line-height:1;">'+z.wind+'</span><span class="unit">km/h</span></div>'+
+          '<div class="sub">ráfagas '+z.gust+' km/h</div></div></div>'+
+      '<div class="verdict" style="color:'+a.color+';"><b>'+a.label+'.</b> <span style="color:var(--text);font-weight:400;">'+a.msg+'</span></div></div>'+
+    '<div class="grid2">'+
+      card("Altura río", z.river, "m", z.trend, true)+
+      card("Lluvia", z.rain, "%", "próximas 6 h", true)+
+      card("Luna", "Creciente", "", "07:42 / 19:58", false)+
+      card("Sol", "07:18", "", "se pone 18:54", false)+'</div>'+
+    '<div class="secTitle">Pronóstico de viento</div>'+
+    '<div class="toggle"><button class="'+(state.fc==="12h"?"on":"")+'" onclick="setFc(\'12h\')">12 horas</button>'+
+      '<button class="'+(state.fc==="7d"?"on":"")+'" onclick="setFc(\'7d\')">7 días</button></div>'+
+    fc +
+    (state.fc==="7d" ? '<div class="sub" style="text-align:center;margin-top:8px;">Después del día 3 la confianza baja: tomalo como tendencia.</div>' : '')+
+    '<div class="secTitle">Calendario lunar (referencia tradicional)</div>'+
+    lunarTable()+
+    '<div class="legalnote" style="margin-top:10px;">🌙 Creencia popular orientativa, contrastala con tus datos reales en el Historial.</div>'+
+    '</div>';
+}
+function card(lbl,val,unit,sub,big){
+  return '<div class="card"><div class="lbl">'+lbl+'</div><div style="display:flex;align-items:baseline;gap:4px;">'+
+    '<span class="'+(big?"val":"valsm")+'">'+val+'</span>'+(unit?'<span class="unit">'+unit+'</span>':'')+'</div><div class="sub">'+sub+'</div></div>';
+}
+var LUNAR = [
+  {phase:"Nueva", icon:"🌑", rate:"Óptima", color:"var(--green)"},
+  {phase:"Menguante", icon:"🌗", rate:"Buena", color:"var(--accent)"},
+  {phase:"Creciente", icon:"🌓", rate:"Regular", color:"var(--amber)"},
+  {phase:"Llena", icon:"🌕", rate:"Neutra", color:"var(--dim)"}
+];
+var MONTHS = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+function lunarColor(i){ return [ "var(--green)","var(--accent)","var(--amber)","var(--dim)" ][i%4]; }
+function lunarTable(){
+  var legend = LUNAR.map(function(l){
+    return '<div class="lunleg"><span class="lundot" style="background:'+l.color+';"></span>'+
+      '<span style="font-size:13px;">'+l.phase+'</span>'+
+      '<span style="font-size:12px;color:var(--dim);margin-left:auto;">'+l.rate+'</span></div>';
+  }).join("");
+  // grilla anual: cada mes una tira de ~30 cuadraditos con la fase rotando
+  var grid = MONTHS.map(function(m, mi){
+    var cells = "";
+    for (var d=0; d<30; d++){
+      var phaseIdx = Math.floor(((d + mi*4) % 28) / 7);
+      cells += '<span class="luncell" style="background:'+lunarColor(phaseIdx)+';"></span>';
+    }
+    return '<div class="lunmonth"><div class="lunmlbl">'+m+'</div><div class="luncells">'+cells+'</div></div>';
+  }).join("");
+  return '<div class="card" style="padding:12px 14px;">'+
+    '<div class="lunlegwrap">'+legend+'</div>'+
+    '<div class="lungrid">'+grid+'</div>'+
+    '<div class="sub" style="text-align:center;margin-top:10px;">Calendario de pesca 2026 · referencia tradicional fija. Hoy: Creciente.</div>'+
+    '</div>';
+}
+
+// ===== PUNTOS =====
+function renderPuntos(){
+  var map = '<div class="maparea" onclick="openForm()">'+
+    '<svg viewBox="0 0 360 420" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">'+
+    '<rect x="0" y="0" width="360" height="420" fill="#0E2C38"/>'+
+    '<path d="M-5 90 C 80 80, 110 170, 200 160 C 280 152, 320 200, 365 188 L 365 280 C 300 286, 260 250, 180 262 C 90 276, 60 230, -5 242 Z" fill="#16475A"/>'+
+    '<path d="M40 40 C 90 35, 120 70, 95 105 C 70 135, 20 120, 15 78 C 12 56, 22 44, 40 40 Z" fill="#1F5A3A"/>'+
+    '<path d="M250 50 C 300 45, 340 70, 335 105 C 330 135, 285 140, 260 115 C 240 95, 235 62, 250 50 Z" fill="#1F5A3A"/>'+
+    '<path d="M90 300 C 150 290, 200 315, 195 345 C 190 375, 120 375, 90 358 C 70 346, 72 308, 90 300 Z" fill="#1F5A3A"/>'+
+    '<text x="62" y="82" font-size="12" fill="#5DCAA5" font-style="italic">Isla del Sol</text>'+
+    '<text x="282" y="90" font-size="12" fill="#5DCAA5" font-style="italic">Isla Verde</text></svg>'+
+    '<div class="pin">📍</div><div class="hint">Tocá el mapa para clavar un punto</div>'+
+    '<button class="fab" onclick="event.stopPropagation();openForm()">+</button></div>';
+  if (!state.showForm) return map;
+  var inner;
+  if (state.saved){
+    inner = '<div style="text-align:center;padding:24px 0;"><div style="font-size:48px;">✓</div>'+
+      '<div style="font-size:19px;font-weight:700;color:var(--green);margin-top:8px;">¡Punto guardado!</div>'+
+      (state.depth?'<div class="sub" style="margin-top:6px;">Pozo de '+state.depth+' m anotado.</div>':'')+
+      '<div class="sub" style="margin-top:8px;line-height:1.5;">Viento, altura y luna de este momento<br>se guardaron solos con el punto.</div>'+
+      '<button class="btn" style="margin-top:18px;flex:none;padding:13px 26px;" onclick="resetForm()">Cargar otro</button></div>';
+  } else {
+    var sp = SPECIES.map(function(o){ return '<button class="chip '+(state.species===o?"on":"")+'" onclick="pickSpecies(\''+o+'\')">'+o+'</button>'; }).join("");
+    var ba = BAITS.map(function(o){ return '<button class="chip '+(state.bait===o?"on":"")+'" onclick="pickBait(\''+o+'\')">'+o+'</button>'; }).join("");
+    var dp = DEPTHS.map(function(o){ return '<button class="chip '+(state.depth===o?"on":"")+'" onclick="pickDepth(\''+o+'\')">'+o+' m</button>'; }).join("");
+    inner = '<div class="rowbetween" style="align-items:center;margin-bottom:14px;"><span style="font-size:19px;font-weight:700;">Nuevo pesquero</span><button class="closebtn" onclick="resetForm()">✕</button></div>'+
+      '<div class="dim" style="margin-bottom:8px;">Especie</div><div class="chips" style="margin-bottom:14px;">'+sp+'</div>'+
+      '<div class="dim" style="margin-bottom:8px;">Carnada</div><div class="chips" style="margin-bottom:14px;">'+ba+'</div>'+
+      '<div class="dim" style="margin-bottom:8px;">Profundidad del pozo (m)</div><div class="chips">'+dp+'</div>'+
+      '<div class="btnrow"><button class="btn">📷 Foto</button><button class="btn primary" onclick="savepoint()">Guardar</button></div>'+
+      '<div style="font-size:13px;color:var(--green);margin-top:12px;text-align:center;line-height:1.4;">Podés guardar sin elegir nada. Todo es opcional.</div>';
+  }
+  return map + '<div class="pad">'+inner+'</div>';
+}
+
+// ===== LANCHA =====
+function renderLancha(){
+  if (state.inspect){
+    var docsB = DOCS.map(bigrow).join(""), safB = SAFETY.map(bigrow).join("");
+    return '<div class="inspecthead"><span style="font-size:22px;">🛡️</span><span style="font-size:19px;font-weight:800;flex:1;">Inspección · La Cautiva</span><button class="closebtn" style="color:var(--bg);" onclick="closeInspect()">✕</button></div>'+
+      '<div class="pad"><div class="seclbl">Documentos</div>'+docsB+'<div class="seclbl">Seguridad</div>'+safB+'</div>';
+  }
+  var docsS = DOCS.map(smallrow).join(""), safS = SAFETY.map(smallrow).join("");
+  return '<div class="pad" style="padding-bottom:0;">'+
+    '<div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;"><div style="width:58px;height:58px;border-radius:12px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:32px;">⛵</div>'+
+    '<div><div style="font-size:19px;font-weight:700;">La Cautiva</div><div class="dim">Tracker 5.40 · REY 04-1278</div></div></div>'+
+    '<div class="guardian"><span style="font-size:22px;">🔔</span><span><b style="color:var(--amber);">2 avisos.</b> El matafuegos vence en 23 días y el seguro en 38.</span></div>'+
+    '<div class="dim" style="margin-bottom:8px;">Combustible y aceite</div>'+
+    '<div class="grid2" style="margin-bottom:18px;">'+
+      fuelCard("⛽ Combustible", state.fuel, "L", "tanque ~120 L", "fuel")+
+      fuelCard("🛢️ Aceite", state.oil, "L", "reserva 2T", "oil")+
+    '</div>'+
+    excursionCalc()+
+    '<div class="dim" style="margin-bottom:8px;">Documentos</div>'+docsS+
+    '<div class="dim" style="margin:18px 0 8px;">Elementos de seguridad</div>'+safS+'</div>'+
+    '<button class="inspectbtn" onclick="openInspect()">🛡️ Modo inspección PNA</button>';
+}
+function smallrow(d){ return '<div class="boatrow"><span class="dot" style="background:'+stateColor(d.state)+';"></span><span style="flex:1;font-size:15px;">'+d.label+'</span><span style="font-size:13px;color:'+stateColor(d.state)+';">'+d.value+'</span></div>'; }
+function excursionCalc(){
+  var e = state.exc;
+  var horasTraslado = e.speed > 0 ? (e.dist * 2) / e.speed : 0;
+  var naftaTraslado = horasTraslado * e.consumo;
+  var naftaZona = e.dias * e.zona;
+  var subtotal = naftaTraslado + naftaZona;
+  var margen = subtotal * 0.2;
+  var total = Math.ceil(subtotal + margen);
+  var alcanza = state.fuel >= total;
+  var falta = Math.max(0, total - state.fuel);
+  var diasBtns = [1,2,3,4,5].map(function(d){
+    var lbl = d===5 ? "5+" : ""+d;
+    return '<button class="chip '+(e.dias===d?"on":"")+'" style="padding:9px 14px;" onclick="setExc(\'dias\','+d+')">'+lbl+'</button>';
+  }).join("");
+  return '<div class="dim" style="margin-bottom:8px;">Excursión · cuánta nafta cargar</div>'+
+    '<div class="card" style="margin-bottom:18px;">'+
+      '<div class="exsub">Traslado (ida y vuelta)</div>'+
+      excRow("Distancia ida (km)", "dist", e.dist, 5)+
+      excRow("Velocidad (km/h)", "speed", e.speed, 5)+
+      excRow("Consumo lancha (L/h)", "consumo", e.consumo, 1)+
+      '<div class="exsub" style="margin-top:12px;">Estadía en zona</div>'+
+      '<div style="display:flex;align-items:center;gap:8px;padding:7px 0;">'+
+        '<span style="flex:1;font-size:14px;color:var(--dim);">Días de pesca</span>'+
+        '<div class="chips" style="gap:6px;justify-content:flex-end;">'+diasBtns+'</div></div>'+
+      excRow("Gasto diario en zona (L/día)", "zona", e.zona, 1)+
+      '<div style="border-top:1px solid var(--line);margin-top:12px;padding-top:12px;">'+
+        '<div class="exline"><span>Traslado ida/vuelta</span><span>'+Math.round(naftaTraslado)+' L</span></div>'+
+        '<div class="exline"><span>'+e.dias+' día(s) × '+e.zona+' L en zona</span><span>'+Math.round(naftaZona)+' L</span></div>'+
+        '<div class="exline"><span>Margen de emergencia (20%)</span><span>'+Math.round(margen)+' L</span></div>'+
+        '<div style="text-align:center;margin-top:10px;">'+
+          '<div class="sub">Total a cargar para la aventura</div>'+
+          '<div style="font-size:36px;font-weight:800;color:var(--accent);margin:4px 0;">'+total+' <span style="font-size:18px;">L</span></div>'+
+          '<div style="font-size:14px;color:'+(alcanza?"var(--green)":"var(--red)")+';font-weight:600;line-height:1.4;">'+
+            (alcanza ? '✓ Con tus '+state.fuel+' L en el tanque te alcanza.' : '⚠️ Tenés '+state.fuel+' L. Te faltan cargar '+falta+' L.')+'</div>'+
+        '</div>'+
+      '</div></div>';
+}
+function excRow(label, key, val, step){
+  return '<div style="display:flex;align-items:center;gap:8px;padding:7px 0;">'+
+    '<span style="flex:1;font-size:14px;color:var(--dim);">'+label+'</span>'+
+    '<button class="fuelbtn" style="width:34px;height:34px;font-size:18px;" onclick="adjExc(\''+key+'\',-'+step+')">−</button>'+
+    '<input class="fuelinput" style="width:60px;flex:none;font-size:18px;" type="number" inputmode="numeric" value="'+val+'" onchange="setExc(\''+key+'\',this.value)" />'+
+    '<button class="fuelbtn" style="width:34px;height:34px;font-size:18px;" onclick="adjExc(\''+key+'\','+step+')">+</button></div>';
+}
+function fuelCard(title, val, unit, sub, kind){
+  var step = kind==="fuel" ? 1 : 0.5;
+  var stepLbl = kind==="fuel" ? "1" : "0.5";
+  return '<div class="card"><div class="lbl">'+title+'</div>'+
+    '<div style="display:flex;align-items:center;gap:8px;margin:6px 0 4px;">'+
+      '<button class="fuelbtn" onclick="adjFuel(\''+kind+'\',-'+step+')">−</button>'+
+      '<input class="fuelinput" type="number" inputmode="decimal" value="'+val+'" '+
+        'onchange="setFuel(\''+kind+'\',this.value)" />'+
+      '<button class="fuelbtn" onclick="adjFuel(\''+kind+'\','+step+')">+</button>'+
+    '</div>'+
+    '<div class="sub" style="text-align:center;">'+unit+' · de a '+stepLbl+' o a mano · '+sub+'</div></div>';
+}
+function bigrow(d){ return '<div class="bigrow"><span class="dot" style="width:15px;height:15px;background:'+stateColor(d.state)+';"></span><div class="info"><div class="l">'+d.label+'</div><div class="v">'+d.value+'</div></div><span style="font-size:26px;">👁️</span></div>'; }
+
+// ===== GUÍA DEL LITORAL =====
+function renderGuia(){
+  var tabs = '<div class="tabs">'+
+    '<button class="'+(state.lit==="fauna"?"on":"")+'" onclick="setLit(\'fauna\')">Fauna</button>'+
+    '<button class="'+(state.lit==="flora"?"on":"")+'" onclick="setLit(\'flora\')">Flora</button>'+
+    '<button class="'+(state.lit==="camp"?"on":"")+'" onclick="setLit(\'camp\')">Campamento</button></div>';
+  var body;
+  if (state.lit==="fauna"){
+    body = FAUNA.map(function(f){
+      return '<div class="litcard"><div class="h"><span class="name">'+f.name+'</span>'+
+        '<span class="badge season">'+f.season+'</span></div>'+
+        '<div class="meta">Carnada: '+f.bait+'<br>'+f.size+'</div></div>';
+    }).join("") + '<div class="legalnote">⚠️ Las tallas y vedas varían por provincia y cambian con el tiempo. Verificá la normativa vigente de tu provincia.</div>';
+  } else if (state.lit==="flora"){
+    body = FLORA.map(function(f){
+      var badge = f.use==="good" ? '<span class="badge good">🔥 Sirve asado</span>' : '<span class="badge bad">💨 Larga humo</span>';
+      return '<div class="litcard"><div class="h"><span class="name">'+f.name+'</span>'+badge+'</div>'+
+        '<div class="meta">'+f.note+'</div></div>';
+    }).join("");
+  } else {
+    var z = ZONES[state.zone], a = assess(z.wind, z.dir);
+    var banner;
+    if (a.lvl==="rojo" || a.lvl==="critico"){
+      banner = '<div class="campbanner" style="background:var(--redBg);border-color:var(--red);color:var(--red);"><b>⚠️ Alerta Pampero en '+z.label+'.</b> <span style="color:var(--text);">Reforzá: doble amarre de la lancha, estacas extra en la carpa y buscá reparo en la costa entrerriana alta. El viento Sur pega fuerte de noche.</span></div>';
+    } else if (a.lvl==="amarillo"){
+      banner = '<div class="campbanner" style="background:var(--amberBg);border-color:var(--amber);color:var(--amber);"><b>Viento moderado en '+z.label+'.</b> <span style="color:var(--text);">Orientá la carpa con la espalda al viento y asegurá bien la lona.</span></div>';
+    } else {
+      banner = '<div class="campbanner" style="background:var(--greenBg);border-color:var(--green);color:var(--green);"><b>Buenas condiciones en '+z.label+'.</b> <span style="color:var(--text);">Noche tranquila para acampar. Igual, amarrá la lancha por las dudas.</span></div>';
+    }
+    body = banner +
+      '<div class="dim" style="margin:4px 0 8px;">Lista de equipo para llevar</div>'+
+      '<div class="card" style="margin-bottom:10px;">'+ gearList() +'</div>'+
+      '<button class="btn primary" style="width:100%;margin-bottom:6px;" onclick="saveGear()">'+
+        (state.gearSaved ? '✓ Estado guardado' : '✓ Guardar estado')+'</button>'+
+      (state.gearSaved ? '<div class="sub" style="text-align:center;color:var(--green);margin-bottom:14px;">Tu lista quedó guardada para la próxima salida.</div>' : '<div style="height:8px;"></div>')+
+      '<div class="litcard"><div class="name">Armado de carpa</div><div class="meta">Buscá piso alto y firme, lejos de la orilla por si sube el río de noche. Estacas en 45°.</div></div>'+
+      '<div class="litcard"><div class="name">Amarre de la lancha</div><div class="meta">Dos puntos de amarre siempre. Dejá juego para la creciente, nunca tensa al palo.</div></div>'+
+      '<div class="litcard"><div class="name">Fogón seguro</div><div class="meta">Lejos de la carpa y de los pastizales secos. Usá leña que no largue humo (ver Flora).</div></div>'+
+      '<div class="sub" style="text-align:center;margin-top:6px;">Los consejos cambian según el viento de tu zona en Ambiente.</div>';
+  }
+  return '<div class="pad">'+tabs+body+'</div>';
+}
+
+// ===== NAV =====
+var TABS = [
+  {id:"ambiente", label:"Ambiente", ico:"🌬️"},
+  {id:"puntos", label:"Puntos", ico:"📍"},
+  {id:"lancha", label:"Lancha", ico:"⛵"},
+  {id:"guia", label:"Guía", ico:"🌿"}
+];
+function render(){
+  var s = document.getElementById("screen");
+  if (state.tab==="ambiente") s.innerHTML = renderAmbiente();
+  else if (state.tab==="puntos") s.innerHTML = renderPuntos();
+  else if (state.tab==="lancha") s.innerHTML = renderLancha();
+  else s.innerHTML = renderGuia();
+  document.getElementById("nav").innerHTML = TABS.map(function(t){
+    return '<button class="'+(state.tab===t.id?"active":"")+'" onclick="setTab(\''+t.id+'\')"><span class="ico">'+t.ico+'</span><span>'+t.label+'</span></button>';
+  }).join("");
+}
+function setTab(t){ state.tab=t; if(t!=="puntos"){state.showForm=false;state.saved=false;} if(t!=="lancha"){state.inspect=false;} document.getElementById("screen").scrollTop=0; render(); }
+function setZone(z){ state.zone=z; render(); }
+function setFc(f){ state.fc=f; render(); }
+function openForm(){ state.showForm=true; render(); }
+function resetForm(){ state.showForm=false; state.species=null; state.bait=null; state.depth=null; state.saved=false; render(); }
+function pickSpecies(o){ state.species=(state.species===o?null:o); render(); }
+function pickBait(o){ state.bait=(state.bait===o?null:o); render(); }
+function pickDepth(o){ state.depth=(state.depth===o?null:o); render(); }
+function savepoint(){ state.saved=true; render(); }
+function openInspect(){ state.inspect=true; document.getElementById("screen").scrollTop=0; render(); }
+function closeInspect(){ state.inspect=false; render(); }
+function adjFuel(kind, delta){
+  if (kind==="fuel"){ state.fuel = Math.max(0, Math.round(state.fuel + delta)); }
+  else { state.oil = Math.max(0, Math.round((state.oil + delta)*10)/10); }
+  render();
+}
+function setFuel(kind, value){
+  var n = parseFloat(value);
+  if (isNaN(n) || n < 0) n = 0;
+  if (kind==="fuel"){ state.fuel = Math.round(n); }
+  else { state.oil = Math.round(n*10)/10; }
+  render();
+}
+function adjExc(key, delta){ var min = key==="dias" ? 1 : 0; state.exc[key] = Math.max(min, state.exc[key] + delta); render(); }
+function setExc(key, value){ var n = parseFloat(value); var min = key==="dias" ? 1 : 0; if (isNaN(n)||n<min) n=min; state.exc[key] = n; render(); }
+function setLit(l){ state.lit=l; render(); }
+function gearList(){
+  return Object.keys(state.gear).map(function(item){
+    var on = state.gear[item];
+    return '<label class="gearitem" onclick="toggleGear(\''+item+'\')">'+
+      '<span class="gearbox '+(on?"on":"")+'">'+(on?"✓":"")+'</span>'+
+      '<span style="'+(on?"color:var(--dim);text-decoration:line-through;":"")+'">'+item+'</span></label>';
+  }).join("");
+}
+function toggleGear(item){ state.gear[item] = !state.gear[item]; state.gearSaved=false; render(); }
+function saveGear(){ state.gearSaved=true; render(); }
+
+render();
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('sw.js').catch(function(e){ console.log('SW:', e); });
+  });
+}
+</script>
+</body>
+</html>
